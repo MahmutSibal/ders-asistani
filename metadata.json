@@ -1,0 +1,6 @@
+{
+  "name": "Ders Asistanı",
+  "description": "Akıllı Ders ve Soru Asistanı - Ders notları analizi, soru-cevap, otomatik test oluşturma ve kişiselleştirilmiş çalışma önerileri.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

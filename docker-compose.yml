@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  # ========================================================
+  # Ollama - Yerel Büyük Dil Modeli (LLM) Servisi
+  # ========================================================
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - study_assistant_net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:11434/api/tags || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+  # ========================================================
+  # n8n - Webhook, İş Akışları ve Otomasyon Motoru
+  # ========================================================
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - WEBHOOK_URL=http://localhost:5678/
+      - GENERIC_TIMEZONE=Europe/Istanbul
+      - N8N_DEFAULT_BINARY_DATA_MODE=default
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
+      - OLLAMA_HOST=http://ollama:11434
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      ollama:
+        condition: service_healthy
+    networks:
+      - study_assistant_net
+
+volumes:
+  ollama_data:
+    driver: local
+  n8n_data:
+    driver: local
+
+networks:
+  study_assistant_net:
+    driver: bridge

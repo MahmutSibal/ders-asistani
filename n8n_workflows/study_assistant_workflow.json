@@ -1,0 +1,312 @@
+{
+  "name": "Akilli_Ders_ve_Soru_Asistani_Workflows",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "study-qa",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1a0b1c2d-0001-4000-8000-000000000001",
+      "name": "Webhook: Soru-Cevap",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 200],
+      "webhookId": "study-qa"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://ollama:11434/api/generate",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"{{ $json.body.model || 'qwen2.5:3b' }}\",\n  \"prompt\": \"Sen üniversite düzeyinde uzman bir {{ $json.body.course || 'Bilgisayar Mühendisliği' }} ders asistanısın. Öğrencinin sorusunu anlaşılır, akademik ve pedagojik olarak açıkla. Soru: {{ $json.body.question }}\",\n  \"stream\": false\n}",
+        "options": {
+          "timeout": 90000
+        }
+      },
+      "id": "1a0b1c2d-0001-4000-8000-000000000002",
+      "name": "Ollama Soru Yanıtla",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"answer\": {{ JSON.stringify($json.response) }},\n  \"model\": {{ JSON.stringify($json.model) }},\n  \"timestamp\": {{ $now.toISO() }}\n}",
+        "options": {}
+      },
+      "id": "1a0b1c2d-0001-4000-8000-000000000003",
+      "name": "Soru Yanıtı Döndür",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [680, 200]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "summarize-notes",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "2a0b1c2d-0002-4000-8000-000000000001",
+      "name": "Webhook: Ders Notu Özetleme",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 420],
+      "webhookId": "summarize-notes"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://ollama:11434/api/generate",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"{{ $json.body.model || 'qwen2.5:3b' }}\",\n  \"prompt\": \"Aşağıdaki {{ $json.body.course }} ders notunu analiz et ve sadece JSON olarak özetle: {\\\"summary\\\": \\\"kapsamlı özet\\\", \\\"key_points\\\": [\\\"anahtar madde 1\\\", \\\"anahtar madde 2\\\", \\\"anahtar madde 3\\\"]}\\n\\nNot:\\n{{ $json.body.content }}\",\n  \"format\": \"json\",\n  \"stream\": false\n}",
+        "options": {
+          "timeout": 90000
+        }
+      },
+      "id": "2a0b1c2d-0002-4000-8000-000000000002",
+      "name": "Ollama Not Özetle",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 420]
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const parsed = JSON.parse($input.first().json.response);\n  return [{ json: parsed }];\n} catch (e) {\n  return [{\n    json: {\n      summary: $input.first().json.response,\n      key_points: [\"Not özeti çıkarıldı\"]\n    }\n  }];\n}"
+      },
+      "id": "2a0b1c2d-0002-4000-8000-000000000003",
+      "name": "JSON Doğrula (Özet)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 420]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "2a0b1c2d-0002-4000-8000-000000000004",
+      "name": "Özet Yanıtı Döndür",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [920, 420]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "generate-quiz",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "3a0b1c2d-0003-4000-8000-000000000001",
+      "name": "Webhook: Test Oluştur",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 640],
+      "webhookId": "generate-quiz"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://ollama:11434/api/generate",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"{{ $json.body.model || 'qwen2.5:3b' }}\",\n  \"prompt\": \"Aşağıdaki ders notuna dayanarak tam 5 adet çoktan seçmeli soru üret. Sadece şu şemada JSON döndür: {\\\"questions\\\": [{\\\"question\\\": \\\"Soru?\\\", \\\"options\\\": [\\\"A\\\", \\\"B\\\", \\\"C\\\", \\\"D\\\"], \\\"correct_answer\\\": \\\"A\\\", \\\"explanation\\\": \\\"Açıklama\\\"}]}\\n\\nDers Notu:\\n{{ $json.body.content }}\",\n  \"format\": \"json\",\n  \"stream\": false\n}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "3a0b1c2d-0003-4000-8000-000000000002",
+      "name": "Ollama Soru Üret",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 640]
+    },
+    {
+      "parameters": {
+        "jsCode": "try {\n  const parsed = JSON.parse($input.first().json.response);\n  return [{ json: parsed }];\n} catch (e) {\n  return [{\n    json: {\n      questions: []\n    }\n  }];\n}"
+      },
+      "id": "3a0b1c2d-0003-4000-8000-000000000003",
+      "name": "JSON Doğrula (Test)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 640]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "3a0b1c2d-0003-4000-8000-000000000004",
+      "name": "Test Sorularını Döndür",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [920, 640]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "evaluate-performance",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "4a0b1c2d-0004-4000-8000-000000000001",
+      "name": "Webhook: Performans Değerlendirme",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 860],
+      "webhookId": "evaluate-performance"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://ollama:11434/api/generate",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"{{ $json.body.model || 'qwen2.5:3b' }}\",\n  \"prompt\": \"Öğrenci {{ $json.body.course }} dersi testini tamamladı. Toplam: {{ $json.body.total }}, Doğru: {{ $json.body.correct }}, Yanlış: {{ $json.body.wrong }}. Yanlış yapılan sorular: {{ JSON.stringify($json.body.wrongQuestions) }}. Öğrenci için eksik konu analizi yap ve çalışma önerisi ver.\",\n  \"stream\": false\n}",
+        "options": {
+          "timeout": 90000
+        }
+      },
+      "id": "4a0b1c2d-0004-4000-8000-000000000002",
+      "name": "Ollama Öneri Üret",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 860]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"recommendations\": {{ JSON.stringify($json.response) }},\n  \"status\": \"success\"\n}",
+        "options": {}
+      },
+      "id": "4a0b1c2d-0004-4000-8000-000000000003",
+      "name": "Değerlendirme Döndür",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [680, 860]
+    }
+  ],
+  "connections": {
+    "Webhook: Soru-Cevap": {
+      "main": [
+        [
+          {
+            "node": "Ollama Soru Yanıtla",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Soru Yanıtla": {
+      "main": [
+        [
+          {
+            "node": "Soru Yanıtı Döndür",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook: Ders Notu Özetleme": {
+      "main": [
+        [
+          {
+            "node": "Ollama Not Özetle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Not Özetle": {
+      "main": [
+        [
+          {
+            "node": "JSON Doğrula (Özet)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "JSON Doğrula (Özet)": {
+      "main": [
+        [
+          {
+            "node": "Özet Yanıtı Döndür",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook: Test Oluştur": {
+      "main": [
+        [
+          {
+            "node": "Ollama Soru Üret",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Soru Üret": {
+      "main": [
+        [
+          {
+            "node": "JSON Doğrula (Test)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "JSON Doğrula (Test)": {
+      "main": [
+        [
+          {
+            "node": "Test Sorularını Döndür",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook: Performans Değerlendirme": {
+      "main": [
+        [
+          {
+            "node": "Ollama Öneri Üret",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Öneri Üret": {
+      "main": [
+        [
+          {
+            "node": "Değerlendirme Döndür",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
